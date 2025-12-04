@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TCCC 戰傷救護模擬考</title>
+    
+    <!-- 引入 React 和 ReactDOM -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    
+    <!-- 引入 Babel 用於解析 JSX -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    
+    <!-- 引入 Tailwind CSS 進行樣式設計 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
+        body { font-family: 'Noto Sans TC', sans-serif; -webkit-tap-highlight-color: transparent; }
+        .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900 h-screen w-screen overflow-hidden">
+
+    <div id="root" class="h-full w-full"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // --- 簡易圖示組件 (SVG) ---
+        const Icon = ({ path, color = "currentColor", size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                {path}
+            </svg>
+        );
+
+        const Icons = {
+            BookOpen: (props) => <Icon {...props} path={<><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></>} />,
+            CheckCircle: (props) => <Icon {...props} path={<><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></>} />,
+            XCircle: (props) => <Icon {...props} path={<><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></>} />,
+            RefreshCw: (props) => <Icon {...props} path={<><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></>} />,
+            Trophy: (props) => <Icon {...props} path={<><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></>} />,
+            AlertCircle: (props) => <Icon {...props} path={<><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></>} />,
+            Play: (props) => <Icon {...props} path={<polygon points="5 3 19 12 5 21 5 3"/>} />,
+            ChevronRight: (props) => <Icon {...props} path={<polyline points="9 18 15 12 9 6"/>} />,
+            List: (props) => <Icon {...props} path={<><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></>} />,
+        };
+
+        const App = () => {
+             // 試卷題目資料庫
+             const allQuestions = [
+                {
+                id: 1,
+                question: "下列何者為戰術戰傷照護的目標？",
+                options: ["傷患治療", "預防更多傷患", "完成任務", "以上皆是"],
+                correctAnswer: 3 
+                },
+                {
+                id: 2,
+                question: "在戰場上，休克的主要肇因是什麼？",
+                options: ["氣道阻塞", "頭部創傷", "失血", "燒燙傷"],
+                correctAnswer: 2 
+                },
+                {
+                id: 3,
+                question: "下列何者非戰術戰傷救護三階段之一？",
+                options: ["敵火下作業", "戰術區醫療救護", "戰術撤離救護", "戰鬥性命保存"],
+                correctAnswer: 3 
+                },
+                {
+                id: 4,
+                question: "在戰場敵火下救護後，將病患移至戰術區掩體後方，你的下一個步驟為何？",
+                options: ["打開呼吸道", "評估意識狀態", "開始固定已知骨折處", "點滴開至最高流速注射 500ML 林格式乳酸液"],
+                correctAnswer: 1 
+                },
+                {
+                id: 5,
+                question: "在戰場戰傷照護時，戰場上使用戰術止血帶紗布必須加壓幾分鐘？",
+                options: ["1分鐘", "3分鐘", "5分鐘", "10分鐘"],
+                correctAnswer: 1 
+                },
+                {
+                id: 6,
+                question: "下列敘事何者不適合敵火下照顧？",
+                options: ["使用止血帶控制致命型四肢出血", "建立靜脈輸液", "必要時火力反擊", "尋找隱蔽掩蔽"],
+                correctAnswer: 1 
+                },
+                {
+                id: 7,
+                question: "當一位醫務兵遇到下列四種病患，哪位該優先處置？",
+                options: ["傷患 A-頭部槍傷且無意識", "傷患 B-腹部槍傷且意識清楚", "傷患 C-大腿槍傷且嚴重出血", "傷患 D-小腿槍傷且暗紅色些微出血"],
+                correctAnswer: 2 
+                },
+                {
+                id: 8,
+                question: "在戰術戰傷救護階段，戰士因爆炸顏面受傷及呼吸道吸入性灼傷該如何建立呼吸道？",
+                options: ["鼻咽呼吸道", "外科呼吸道", "插管", "鎖骨中線針刺減壓"],
+                correctAnswer: 1 
+                },
+                {
+                id: 9,
+                question: "下列何者為戰鬥救護技術員戰術區救護流程(M.A.R.C.H)中 C 之處置？",
+                options: ["呼吸道", "循環", "全身評估", "嚴重出血"],
+                correctAnswer: 1 
+                },
+                {
+                id: 10,
+                question: "下列哪些位置為針刺減壓之正確置入點？",
+                options: [
+                    "第四肋間鎖骨中線、第五肋間腋前線",
+                    "第一肋間鎖骨中線、第三肋間腋前線",
+                    "第五肋間鎖骨中線、第二肋間腋前線",
+                    "第二肋間鎖骨中線、第五肋間腋前線"
+                ],
+                correctAnswer: 3 
+                },
+                {
+                id: 11,
+                question: "下列何者為戰鬥救護技術員戰術區救護流程(M.A.R.C.H)中 A 之處置為何？",
+                options: ["建立呼吸道", "評估循環", "進行全身評估", "嚴重出血處置"],
+                correctAnswer: 0 
+                },
+                {
+                id: 12,
+                question: "無線電傷患後送九線回報中第五線回報內容為何？",
+                options: ["無線電頻率", "傷患國籍", "傷情狀況(緊急、手術、優先、一般、輕微)", "傷患傷情後送姿勢"],
+                correctAnswer: 3 
+                },
+                {
+                id: 13,
+                question: "下列何者為戰鬥救護技術員戰術區救護流程(M.A.R.C.H)中 M 之處置為何？",
+                options: ["建立呼吸道", "評估循環", "進行全身評估", "嚴重出血處置"],
+                correctAnswer: 3 
+                },
+                {
+                id: 14,
+                question: "胸部創傷之傷患胸壁缺損的大小達氣管口徑的三分之二時，將造成下列何種情況發生？",
+                options: ["開放性氣胸", "張力性氣胸", "連枷胸", "血胸"],
+                correctAnswer: 0
+                },
+                {
+                id: 15,
+                question: "當在處置槍傷傷患下顎骨時造成嚴重的呼吸道中斷，傷患忽然間呼吸道阻塞，幾經掙扎後失去意識，這時會選擇哪種呼吸道建立方式？",
+                options: ["鼻咽呼吸道且採復甦姿勢", "氣管內管插管處置", "外科呼吸道建立", "讓患者做起來並嘗試吹兩口氣"],
+                correctAnswer: 2 
+                },
+                {
+                id: 16,
+                question: "現處於「傷患集結點救護」階段，救護員用擔架抬了一名左小腿中彈的傷患，另位隊員交接說，該傷患傷口出血不多，已用加壓式彈繃包紮，但現在目視到包紮處已浸紅且緩緩滴血，且傷患正抱怨疼痛及感覺頭暈，請問下一步治療是？",
+                options: ["在包紮處再包上一層加壓式彈繃", "測量生命徵象，確認血壓值", "開始靜脈注射，他現在需馬上輸血", "立即上止血帶"],
+                correctAnswer: 3 
+                },
+                {
+                id: 17,
+                question: "一位胸部槍傷的傷患，在你以黏貼胸封處理後，傷患出現呼吸困難的現象，下一部最佳做法為？",
+                options: ["插管", "置入胸管", "撕開胸封幾秒鐘以完成減壓，之後再貼回皮膚上", "環甲膜切開術"],
+                correctAnswer: 2 
+                },
+                {
+                id: 18,
+                question: "無線電傷患後送九線回報中第三線回報內容為何？",
+                options: ["傷患傷情後送姿勢", "傷患後送座標點", "無線電頻率", "傷情狀況(緊急、手術、優先、一般、輕微)"],
+                correctAnswer: 3 
+                },
+                {
+                id: 19,
+                question: "在戰術環境下，最佳處置嚴重四肢出血的最好方法是？",
+                options: ["直接加壓", "壓力點加壓", "一個壓力裝置", "止血帶"],
+                correctAnswer: 3 
+                },
+                {
+                id: 20,
+                question: "救護員或醫務兵在受完戰術戰場照護訓練後，應具有置入胸管的技能？",
+                options: ["是", "否"],
+                correctAnswer: 1 
+                },
+                {
+                id: 21,
+                question: "傷患若大腿斷肢，其股動脈出血致死需要多長時間？",
+                options: ["1分鐘內", "5分鐘內", "3分鐘內", "10分鐘內"],
+                correctAnswer: 2 
+                },
+                {
+                id: 22,
+                question: "下列何者為戰鬥救護技術員戰術區救護流程(M.A.R.C.H)中 H 之處置為何？",
+                options: ["建立呼吸道", "評估循環", "頭部傷害評估及保暖", "嚴重出血處置"],
+                correctAnswer: 2 
+                },
+                {
+                id: 23,
+                question: "下列為者為戰場上實施 CPR 的代價？",
+                options: ["CPR施救者可能被殺", "任務延誤", "傷患依舊死亡", "以上皆是"],
+                correctAnswer: 3 
+                },
+                {
+                id: 24,
+                question: "張力性氣胸針刺減壓處置以何種口徑之針頭較為洽當？",
+                options: ["14號", "22號", "24號", "18號"],
+                correctAnswer: 0 
+                },
+                {
+                id: 25,
+                question: "下列何者為戰場救護流程(M.A.R.C.H)中 R 之處置為何？",
+                options: ["置入鼻咽", "胸針刺減壓處置", "蓋上毛毯", "止血帶處置"],
+                correctAnswer: 1 
+                }
+            ];
+
+            const [currentScreen, setCurrentScreen] = useState('welcome');
+            const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+            const [score, setScore] = useState(0);
+            const [selectedAnswer, setSelectedAnswer] = useState(null);
+            const [isAnswerRevealed, setIsAnswerRevealed] = useState(false);
+            const [wrongAnswers, setWrongAnswers] = useState([]);
+            const [shuffledQuestions, setShuffledQuestions] = useState([]);
+
+            const startQuiz = () => {
+                const shuffled = [...allQuestions].sort(() => Math.random() - 0.5);
+                setShuffledQuestions(shuffled);
+                setCurrentQuestionIndex(0);
+                setScore(0);
+                setWrongAnswers([]);
+                setSelectedAnswer(null);
+                setIsAnswerRevealed(false);
+                setCurrentScreen('quiz');
+            };
+
+            const handleAnswerClick = (index) => {
+                if (isAnswerRevealed) return;
+                setSelectedAnswer(index);
+                setIsAnswerRevealed(true);
+
+                const currentQ = shuffledQuestions[currentQuestionIndex];
+                if (index === currentQ.correctAnswer) {
+                    setScore(score + 1);
+                } else {
+                    setWrongAnswers([...wrongAnswers, { ...currentQ, yourAnswer: index }]);
+                }
+            };
+
+            const nextQuestion = () => {
+                if (currentQuestionIndex < shuffledQuestions.length - 1) {
+                    setCurrentQuestionIndex(currentQuestionIndex + 1);
+                    setSelectedAnswer(null);
+                    setIsAnswerRevealed(false);
+                } else {
+                    setCurrentScreen('result');
+                }
+            };
+
+            const restartQuiz = () => startQuiz();
+            const goToStudyMode = () => setCurrentScreen('study');
+            const goHome = () => setCurrentScreen('welcome');
+
+            // --- 畫面組件 ---
+            
+            const WelcomeScreen = () => (
+                <div className="flex flex-col items-center justify-center h-full p-6 text-center space-y-8 animate-fadeIn">
+                    <div className="bg-red-100 p-6 rounded-full">
+                        <Icons.BookOpen className="text-red-600 w-16 h-16" />
+                    </div>
+                    <div>
+                        <h1 className="text-3xl font-bold text-gray-800 mb-2">TCCC 專業戰術戰傷救護</h1>
+                        <h2 className="text-xl text-gray-600">學科測驗模擬練習</h2>
+                    </div>
+                    <p className="text-gray-500 max-w-md">本程式包含 25 道題目。選擇「開始測驗」進行隨機模擬考，或「背誦模式」查看答案。</p>
+                    <div className="flex flex-col w-full max-w-xs space-y-4">
+                        <button onClick={startQuiz} className="flex items-center justify-center w-full py-4 bg-red-600 text-white rounded-xl shadow-lg hover:bg-red-700 transition transform active:scale-95 font-bold text-lg">
+                            <Icons.Play className="mr-2 w-6 h-6" /> 開始測驗
+                        </button>
+                        <button onClick={goToStudyMode} className="flex items-center justify-center w-full py-4 bg-white text-gray-700 border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition font-semibold">
+                            <Icons.List className="mr-2 w-6 h-6" /> 背誦模式 (題庫)
+                        </button>
+                    </div>
+                </div>
+            );
+
+            const QuizScreen = () => {
+                const currentQ = shuffledQuestions[currentQuestionIndex];
+                const isCorrect = selectedAnswer === currentQ.correctAnswer;
+
+                return (
+                    <div className="flex flex-col h-full max-w-2xl mx-auto p-4">
+                        <div className="w-full bg-gray-200 rounded-full h-2.5 mb-6 mt-2">
+                            <div className="bg-red-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${((currentQuestionIndex + 1) / shuffledQuestions.length) * 100}%` }}></div>
+                        </div>
+                        <div className="bg-white rounded-2xl shadow-xl p-6 mb-6 flex-grow overflow-y-auto">
+                            <div className="flex justify-between items-center mb-4">
+                                <span className="text-sm font-bold text-gray-400">第 {currentQuestionIndex + 1} 題 / 共 {shuffledQuestions.length} 題</span>
+                                <span className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-500">TCCC</span>
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-800 mb-6 leading-relaxed">{currentQ.question}</h3>
+                            <div className="space-y-3">
+                                {currentQ.options.map((option, idx) => {
+                                    let btnClass = "w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex justify-between items-center ";
+                                    if (!isAnswerRevealed) {
+                                        btnClass += "border-gray-200 active:bg-gray-100";
+                                    } else {
+                                        if (idx === currentQ.correctAnswer) btnClass += "border-green-500 bg-green-50 text-green-800";
+                                        else if (idx === selectedAnswer) btnClass += "border-red-500 bg-red-50 text-red-800";
+                                        else btnClass += "border-gray-100 text-gray-400 opacity-50";
+                                    }
+                                    return (
+                                        <button key={idx} onClick={() => handleAnswerClick(idx)} disabled={isAnswerRevealed} className={btnClass}>
+                                            <span className="font-medium mr-2">{idx + 1}. {option}</span>
+                                            {isAnswerRevealed && idx === currentQ.correctAnswer && <Icons.CheckCircle className="text-green-600 w-5 h-5" />}
+                                            {isAnswerRevealed && idx === selectedAnswer && idx !== currentQ.correctAnswer && <Icons.XCircle className="text-red-600 w-5 h-5" />}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            {isAnswerRevealed && (
+                                <div className={`mt-6 p-4 rounded-xl animate-fadeIn ${isCorrect ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                    <div className="flex items-center">
+                                        {isCorrect ? <Icons.CheckCircle className="mr-2 w-5 h-5" /> : <Icons.AlertCircle className="mr-2 w-5 h-5" />}
+                                        <span className="font-bold">{isCorrect ? "答對了！" : "答錯了！"}</span>
+                                    </div>
+                                    {!isCorrect && <p className="mt-1 ml-7 text-sm">正確答案是：<span className="font-bold">{currentQ.correctAnswer + 1}. {currentQ.options[currentQ.correctAnswer]}</span></p>}
+                                </div>
+                            )}
+                        </div>
+                        <div className="mt-auto pt-4 pb-2">
+                            <button onClick={nextQuestion} disabled={!isAnswerRevealed} className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg flex items-center justify-center transition-all ${!isAnswerRevealed ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-red-600 text-white hover:bg-red-700 active:scale-95'}`}>
+                                {currentQuestionIndex < shuffledQuestions.length - 1 ? '下一題' : '查看結果'} 
+                                {currentQuestionIndex < shuffledQuestions.length - 1 && <Icons.ChevronRight className="ml-2 w-5 h-5" />}
+                            </button>
+                        </div>
+                    </div>
+                );
+            };
+
+            const ResultScreen = () => {
+                const percentage = Math.round((score / shuffledQuestions.length) * 100);
+                return (
+                    <div className="flex flex-col h-full max-w-2xl mx-auto p-6 overflow-y-auto">
+                        <div className="text-center mb-8 mt-4">
+                            <div className="inline-block p-4 bg-yellow-100 rounded-full mb-4">
+                                <Icons.Trophy className="text-yellow-600 w-12 h-12" />
+                            </div>
+                            <h2 className="text-3xl font-bold text-gray-800 mb-2">測驗結束</h2>
+                            <div className="text-5xl font-black text-red-600 mb-2">{score} / {shuffledQuestions.length}</div>
+                            <p className="text-gray-500 font-medium">{percentage >= 80 ? "太強了！通過標準。" : "請再多練習一下！"}</p>
+                        </div>
+                        {wrongAnswers.length > 0 && (
+                            <div className="bg-white rounded-xl shadow-md p-6 mb-6">
+                                <h3 className="font-bold text-gray-800 mb-4 flex items-center"><Icons.AlertCircle className="text-red-500 mr-2 w-5 h-5" /> 需要複習的題目 ({wrongAnswers.length})</h3>
+                                <div className="space-y-4">
+                                    {wrongAnswers.map((q, idx) => (
+                                        <div key={idx} className="border-b border-gray-100 last:border-0 pb-4 last:pb-0">
+                                            <p className="font-medium text-gray-800 mb-2">{q.question}</p>
+                                            <div className="text-sm text-red-600 flex items-center mb-1"><Icons.XCircle className="mr-1 w-4 h-4" /> 你的回答: {q.options[q.yourAnswer]}</div>
+                                            <div className="text-sm text-green-600 flex items-center"><Icons.CheckCircle className="mr-1 w-4 h-4" /> 正確答案: {q.options[q.correctAnswer]}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        <div className="flex flex-col space-y-3 mt-auto pb-4">
+                            <button onClick={restartQuiz} className="w-full py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 flex justify-center items-center shadow-md">
+                                <Icons.RefreshCw className="mr-2 w-5 h-5" /> 重新測驗
+                            </button>
+                            <button onClick={goHome} className="w-full py-3 bg-white text-gray-600 border border-gray-300 rounded-xl font-bold hover:bg-gray-50">回主選單</button>
+                        </div>
+                    </div>
+                );
+            };
+
+            const StudyMode = () => (
+                <div className="flex flex-col h-full max-w-3xl mx-auto p-4 overflow-hidden">
+                    <div className="flex items-center justify-between mb-4 mt-2">
+                        <button onClick={goHome} className="p-2 hover:bg-gray-100 rounded-full"><Icons.ChevronRight className="rotate-180 w-6 h-6" /></button>
+                        <h2 className="text-xl font-bold">完整題庫總覽 ({allQuestions.length}題)</h2>
+                        <div className="w-8"></div>
+                    </div>
+                    <div className="overflow-y-auto pb-4 space-y-4 pr-2 flex-grow">
+                        {allQuestions.map((q) => (
+                            <div key={q.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                                <div className="flex items-start">
+                                    <span className="bg-red-100 text-red-800 text-xs font-bold px-2 py-1 rounded mr-3 mt-1 shrink-0">Q{q.id}</span>
+                                    <div>
+                                        <h3 className="font-bold text-gray-800 mb-3">{q.question}</h3>
+                                        <div className="space-y-2">
+                                            {q.options.map((opt, optIdx) => (
+                                                <div key={optIdx} className={`text-sm p-2 rounded flex items-center ${optIdx === q.correctAnswer ? 'bg-green-50 text-green-800 font-bold border border-green-200' : 'text-gray-500'}`}>
+                                                    {optIdx === q.correctAnswer && <Icons.CheckCircle className="mr-2 w-4 h-4 text-green-600 shrink-0" />}
+                                                    {optIdx + 1}. {opt}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+
+            return (
+                <>
+                    {currentScreen === 'welcome' && <WelcomeScreen />}
+                    {currentScreen === 'quiz' && <QuizScreen />}
+                    {currentScreen === 'result' && <ResultScreen />}
+                    {currentScreen === 'study' && <StudyMode />}
+                </>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
+
